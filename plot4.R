@@ -1,29 +1,26 @@
-dataFile <- "./data/household_power_consumption.txt"
-data <- read.table(dataFile, header=TRUE, sep=";", stringsAsFactors=FALSE, dec=".")
-subSetData <- data[data$Date %in% c("1/2/2007","2/2/2007") ,]
+source("downloadArchive.R")
 
-#str(subSetData)
-datetime <- strptime(paste(subSetData$Date, subSetData$Time, sep=" "), "%d/%m/%Y %H:%M:%S") 
-globalActivePower <- as.numeric(subSetData$Global_active_power)
-globalReactivePower <- as.numeric(subSetData$Global_reactive_power)
-voltage <- as.numeric(subSetData$Voltage)
-subMetering1 <- as.numeric(subSetData$Sub_metering_1)
-subMetering2 <- as.numeric(subSetData$Sub_metering_2)
-subMetering3 <- as.numeric(subSetData$Sub_metering_3)
+# Load the NEI & SCC data frames.
+NEI <- readRDS("summarySCC_PM25.rds")
+SCC <- readRDS("Source_Classification_Code.rds")
 
+# Subset coal combustion related NEI data
+combustionRelated <- grepl("comb", SCC$SCC.Level.One, ignore.case=TRUE)
+coalRelated <- grepl("coal", SCC$SCC.Level.Four, ignore.case=TRUE) 
+coalCombustion <- (combustionRelated & coalRelated)
+combustionSCC <- SCC[coalCombustion,]$SCC
+combustionNEI <- NEI[NEI$SCC %in% combustionSCC,]
 
-png("plot4.png", width=480, height=480)
-par(mfrow = c(2, 2)) 
+png("plot4.png",width=480,height=480,units="px",bg="transparent")
 
-plot(datetime, globalActivePower, type="l", xlab="", ylab="Global Active Power", cex=0.2)
+library(ggplot2)
 
-plot(datetime, voltage, type="l", xlab="datetime", ylab="Voltage")
+ggp <- ggplot(combustionNEI,aes(factor(year),Emissions/10^5)) +
+  geom_bar(stat="identity",fill="grey",width=0.75) +
+  theme_bw() +  guides(fill=FALSE) +
+  labs(x="year", y=expression("Total PM"[2.5]*" Emission (10^5 Tons)")) + 
+  labs(title=expression("PM"[2.5]*" Coal Combustion Source Emissions Across US from 1999-2008"))
 
-plot(datetime, subMetering1, type="l", ylab="Energy Submetering", xlab="")
-lines(datetime, subMetering2, type="l", col="red")
-lines(datetime, subMetering3, type="l", col="blue")
-legend("topright", c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"), lty=, lwd=2.5, col=c("black", "red", "blue"), bty="o")
-
-plot(datetime, globalReactivePower, type="l", xlab="datetime", ylab="Global_reactive_power")
+print(ggp)
 
 dev.off()

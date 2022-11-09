@@ -1,17 +1,26 @@
-dataFile <- "./data/household_power_consumption.txt"
-data <- read.table(dataFile, header=TRUE, sep=";", stringsAsFactors=FALSE, dec=".")
-subSetData <- data[data$Date %in% c("1/2/2007","2/2/2007") ,]
+source("downloadArchive.R")
 
-#str(subSetData)
-datetime <- strptime(paste(subSetData$Date, subSetData$Time, sep=" "), "%d/%m/%Y %H:%M:%S") 
-globalActivePower <- as.numeric(subSetData$Global_active_power)
-subMetering1 <- as.numeric(subSetData$Sub_metering_1)
-subMetering2 <- as.numeric(subSetData$Sub_metering_2)
-subMetering3 <- as.numeric(subSetData$Sub_metering_3)
+# Load the NEI & SCC data frames.
+NEI <- readRDS("summarySCC_PM25.rds")
+SCC <- readRDS("Source_Classification_Code.rds")
 
-png("plot3.png", width=480, height=480)
-plot(datetime, subMetering1, type="l", ylab="Energy Submetering", xlab="")
-lines(datetime, subMetering2, type="l", col="red")
-lines(datetime, subMetering3, type="l", col="blue")
-legend("topright", c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"), lty=1, lwd=2.5, col=c("black", "red", "blue"))
+# Subset NEI data by Baltimore's fip.
+baltimoreNEI <- NEI[NEI$fips=="24510",]
+
+# Aggregate using sum the Baltimore emissions data by year
+aggTotalsBaltimore <- aggregate(Emissions ~ year, baltimoreNEI,sum)
+
+png("plot3.png",width=480,height=480,units="px",bg="transparent")
+
+library(ggplot2)
+
+ggp <- ggplot(baltimoreNEI,aes(factor(year),Emissions,fill=type)) +
+  geom_bar(stat="identity") +
+  theme_bw() + guides(fill=FALSE)+
+  facet_grid(.~type,scales = "free",space="free") + 
+  labs(x="year", y=expression("Total PM"[2.5]*" Emission (Tons)")) + 
+  labs(title=expression("PM"[2.5]*" Emissions, Baltimore City 1999-2008 by Source Type"))
+
+print(ggp)
+
 dev.off()
